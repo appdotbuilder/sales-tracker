@@ -12,6 +12,7 @@ export const salesProspectSchema = z.object({
   status_closing: z.string(),
   notes: z.string().nullable(),
   blast_mingguan: z.boolean(),
+  photo_url: z.string().nullable(),
   created_at: z.coerce.date(),
   updated_at: z.coerce.date()
 });
@@ -28,7 +29,8 @@ export const createSalesProspectInputSchema = z.object({
   survey_lokasi: z.boolean(),
   status_closing: z.string().min(1, "Status closing is required"),
   notes: z.string().nullable(),
-  blast_mingguan: z.boolean()
+  blast_mingguan: z.boolean(),
+  photo_url: z.string().nullable().optional()
 });
 
 export type CreateSalesProspectInput = z.infer<typeof createSalesProspectInputSchema>;
@@ -44,7 +46,8 @@ export const updateSalesProspectInputSchema = z.object({
   survey_lokasi: z.boolean().optional(),
   status_closing: z.string().min(1).optional(),
   notes: z.string().nullable().optional(),
-  blast_mingguan: z.boolean().optional()
+  blast_mingguan: z.boolean().optional(),
+  photo_url: z.string().nullable().optional()
 });
 
 export type UpdateSalesProspectInput = z.infer<typeof updateSalesProspectInputSchema>;
@@ -62,3 +65,12 @@ export const getSalesProspectInputSchema = z.object({
 });
 
 export type GetSalesProspectInput = z.infer<typeof getSalesProspectInputSchema>;
+
+// Input schema for uploading photo
+export const uploadPhotoInputSchema = z.object({
+  prospect_id: z.number(),
+  photo_data: z.string(), // Base64 encoded image data
+  filename: z.string().optional()
+});
+
+export type UploadPhotoInput = z.infer<typeof uploadPhotoInputSchema>;

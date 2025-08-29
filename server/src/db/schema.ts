@@ -11,6 +11,7 @@ export const salesProspectsTable = pgTable('sales_prospects', {
   status_closing: text('status_closing').notNull(),
   notes: text('notes'), // Nullable by default
   blast_mingguan: boolean('blast_mingguan').notNull().default(false),
+  photo_url: text('photo_url'), // URL to uploaded photo
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull()
 });

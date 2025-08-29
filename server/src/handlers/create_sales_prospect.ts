@@ -4,7 +4,6 @@ import { type CreateSalesProspectInput, type SalesProspect } from '../schema';
 
 export const createSalesProspect = async (input: CreateSalesProspectInput): Promise<SalesProspect> => {
   try {
-    // Insert sales prospect record
     const result = await db.insert(salesProspectsTable)
       .values({
         follow_up: input.follow_up,
@@ -15,7 +14,8 @@ export const createSalesProspect = async (input: CreateSalesProspectInput): Prom
         survey_lokasi: input.survey_lokasi,
         status_closing: input.status_closing,
         notes: input.notes,
-        blast_mingguan: input.blast_mingguan
+        blast_mingguan: input.blast_mingguan,
+        photo_url: input.photo_url || null
       })
       .returning()
       .execute();

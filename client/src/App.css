@@ -2,49 +2,109 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer components {
-  /* Custom component styles for better visual consistency */
-  .prospect-card-gradient {
-    @apply bg-gradient-to-br from-white to-gray-50;
-  }
-  
-  .status-badge-success {
-    @apply bg-green-100 text-green-800 border-green-200;
-  }
-  
-  .status-badge-warning {
-    @apply bg-yellow-100 text-yellow-800 border-yellow-200;
-  }
-  
-  .status-badge-danger {
-    @apply bg-red-100 text-red-800 border-red-200;
-  }
-  
-  .status-badge-info {
-    @apply bg-blue-100 text-blue-800 border-blue-200;
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.75rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
   }
 }
 
-/* Smooth transitions for interactive elements */
-.hover\:shadow-lg {
-  transition: box-shadow 0.15s ease-in-out;
+@layer base {
+  body {
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
 }
 
-/* Custom scrollbar for dialog content */
-.dialog-content::-webkit-scrollbar {
-  width: 6px;
+.crm-gradient {
+  background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 50%, #f5f0ff 100%);
+  min-height: 100vh;
 }
 
-.dialog-content::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 3px;
+.crm-card {
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border-radius: 0.75rem;
 }
 
-.dialog-content::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
+.crm-header {
+  background: linear-gradient(90deg, #2563eb 0%, #4f46e5 100%);
+  color: white;
 }
 
-.dialog-content::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.status-terbuka {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.status-menang {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.status-kalah {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.potensi-tinggi {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.potensi-sedang {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.potensi-rendah {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.follow-up-perlu {
+  background-color: #fed7aa;
+  color: #ea580c;
+}
+
+.follow-up-selesai {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.follow-up-tertunda {
+  background-color: #f3f4f6;
+  color: #374151;
 }
