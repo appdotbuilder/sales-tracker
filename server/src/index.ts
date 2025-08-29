@@ -3,25 +3,28 @@ import { createHTTPServer } from '@trpc/server/adapters/standalone';
 import 'dotenv/config';
 import cors from 'cors';
 import superjson from 'superjson';
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { z } from 'zod';
 
-// Import schema types
+// Import schemas
 import { 
-  createSalesProspectInputSchema,
-  updateSalesProspectInputSchema,
-  deleteSalesProspectInputSchema,
-  getSalesProspectInputSchema,
-  uploadPhotoInputSchema
+  createProspectInputSchema, 
+  updateProspectInputSchema,
+  prospectFilterSchema,
+  uploadPhotoInputSchema,
+  createActivityInputSchema
 } from './schema';
 
 // Import handlers
-import { createSalesProspect } from './handlers/create_sales_prospect';
-import { getSalesProspects } from './handlers/get_sales_prospects';
-import { getSalesProspect } from './handlers/get_sales_prospect';
-import { updateSalesProspect } from './handlers/update_sales_prospect';
-import { deleteSalesProspect } from './handlers/delete_sales_prospect';
+import { createProspect } from './handlers/create_prospect';
+import { getProspects } from './handlers/get_prospects';
+import { getProspectById } from './handlers/get_prospect_by_id';
+import { updateProspect } from './handlers/update_prospect';
+import { deleteProspect } from './handlers/delete_prospect';
 import { uploadPhoto } from './handlers/upload_photo';
+import { getProspectPhotos } from './handlers/get_prospect_photos';
+import { deletePhoto } from './handlers/delete_photo';
+import { createActivity } from './handlers/create_activity';
+import { getProspectActivities } from './handlers/get_prospect_activities';
 
 const t = initTRPC.create({
   transformer: superjson,
@@ -31,38 +34,53 @@ const publicProcedure = t.procedure;
 const router = t.router;
 
 const appRouter = router({
+  // Health check endpoint
   healthcheck: publicProcedure.query(() => {
     return { status: 'ok', timestamp: new Date().toISOString() };
   }),
-  
-  // Create a new sales prospect
-  createSalesProspect: publicProcedure
-    .input(createSalesProspectInputSchema)
-    .mutation(({ input }) => createSalesProspect(input)),
-  
-  // Get all sales prospects
-  getSalesProspects: publicProcedure
-    .query(() => getSalesProspects()),
-  
-  // Get a single sales prospect by ID
-  getSalesProspect: publicProcedure
-    .input(getSalesProspectInputSchema)
-    .query(({ input }) => getSalesProspect(input)),
-  
-  // Update an existing sales prospect
-  updateSalesProspect: publicProcedure
-    .input(updateSalesProspectInputSchema)
-    .mutation(({ input }) => updateSalesProspect(input)),
-  
-  // Delete a sales prospect
-  deleteSalesProspect: publicProcedure
-    .input(deleteSalesProspectInputSchema)
-    .mutation(({ input }) => deleteSalesProspect(input)),
-  
-  // Upload photo for a sales prospect
+
+  // Prospect management endpoints
+  createProspect: publicProcedure
+    .input(createProspectInputSchema)
+    .mutation(({ input }) => createProspect(input)),
+
+  getProspects: publicProcedure
+    .input(prospectFilterSchema.optional())
+    .query(({ input }) => getProspects(input)),
+
+  getProspectById: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .query(({ input }) => getProspectById(input.id)),
+
+  updateProspect: publicProcedure
+    .input(updateProspectInputSchema)
+    .mutation(({ input }) => updateProspect(input)),
+
+  deleteProspect: publicProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(({ input }) => deleteProspect(input.id)),
+
+  // Photo management endpoints
   uploadPhoto: publicProcedure
     .input(uploadPhotoInputSchema)
     .mutation(({ input }) => uploadPhoto(input)),
+
+  getProspectPhotos: publicProcedure
+    .input(z.object({ prospectId: z.number() }))
+    .query(({ input }) => getProspectPhotos(input.prospectId)),
+
+  deletePhoto: publicProcedure
+    .input(z.object({ photoId: z.number() }))
+    .mutation(({ input }) => deletePhoto(input.photoId)),
+
+  // Activity management endpoints
+  createActivity: publicProcedure
+    .input(createActivityInputSchema)
+    .mutation(({ input }) => createActivity(input)),
+
+  getProspectActivities: publicProcedure
+    .input(z.object({ prospectId: z.number() }))
+    .query(({ input }) => getProspectActivities(input.prospectId)),
 });
 
 export type AppRouter = typeof appRouter;
@@ -71,28 +89,6 @@ async function start() {
   const port = process.env['SERVER_PORT'] || 2022;
   const server = createHTTPServer({
     middleware: (req, res, next) => {
-      // Handle static file serving for uploads
-      if (req.url?.startsWith('/uploads/')) {
-        const filePath = join(process.cwd(), 'public', req.url);
-        if (existsSync(filePath)) {
-          const ext = req.url.split('.').pop()?.toLowerCase();
-          const contentType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' :
-                             ext === 'png' ? 'image/png' :
-                             ext === 'gif' ? 'image/gif' : 'image/jpeg';
-          
-          res.setHeader('Content-Type', contentType);
-          res.setHeader('Cache-Control', 'public, max-age=31536000');
-          
-          const fileBuffer = readFileSync(filePath);
-          res.end(fileBuffer);
-          return;
-        } else {
-          res.statusCode = 404;
-          res.end('File not found');
-          return;
-        }
-      }
-      
       cors()(req, res, next);
     },
     router: appRouter,
@@ -100,8 +96,13 @@ async function start() {
       return {};
     },
   });
+  
   server.listen(port);
-  console.log(`TRPC server listening at port: ${port}`);
+  console.log(`CRM TRPC Server listening at port: ${port}`);
+  console.log(`Available endpoints:`);
+  console.log(`- Prospect Management: createProspect, getProspects, getProspectById, updateProspect, deleteProspect`);
+  console.log(`- Photo Management: uploadPhoto, getProspectPhotos, deletePhoto`);
+  console.log(`- Activity Tracking: createActivity, getProspectActivities`);
 }
 
 start();

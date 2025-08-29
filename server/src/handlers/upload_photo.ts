@@ -1,50 +1,22 @@
-import { db } from '../db';
-import { salesProspectsTable } from '../db/schema';
-import { eq } from 'drizzle-orm';
-import { type UploadPhotoInput, type SalesProspect } from '../schema';
-import { writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join } from 'path';
+import { type UploadPhotoInput, type Photo } from '../schema';
 
-export const uploadPhoto = async (input: UploadPhotoInput): Promise<SalesProspect> => {
-  try {
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = join(process.cwd(), 'public', 'uploads');
-    if (!existsSync(uploadsDir)) {
-      mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    // Generate filename
-    const timestamp = Date.now();
-    const filename = input.filename || `prospect_${input.prospect_id}_${timestamp}.jpg`;
-    const filePath = join(uploadsDir, filename);
-
-    // Remove data:image/[type];base64, prefix if present
-    const base64Data = input.photo_data.replace(/^data:image\/[a-z]+;base64,/, '');
-    
-    // Convert base64 to buffer and save file
-    const buffer = Buffer.from(base64Data, 'base64');
-    writeFileSync(filePath, buffer);
-
-    // Create the URL path for the saved image
-    const photoUrl = `/uploads/${filename}`;
-
-    // Update the prospect with the photo URL
-    const result = await db.update(salesProspectsTable)
-      .set({ 
-        photo_url: photoUrl,
-        updated_at: new Date()
-      })
-      .where(eq(salesProspectsTable.id, input.prospect_id))
-      .returning()
-      .execute();
-
-    if (result.length === 0) {
-      throw new Error(`Sales prospect with id ${input.prospect_id} not found`);
-    }
-
-    return result[0];
-  } catch (error) {
-    console.error('Photo upload failed:', error);
-    throw error;
-  }
-};
+export async function uploadPhoto(input: UploadPhotoInput): Promise<Photo> {
+    // This is a placeholder declaration! Real code should be implemented here.
+    // The goal of this handler is saving photo metadata to database after file upload.
+    // Real implementation should:
+    // 1. Validate that the prospect exists
+    // 2. Generate unique filename to prevent conflicts
+    // 3. Store file in configured storage location (local filesystem or cloud storage)
+    // 4. Save metadata to photos table
+    // 5. Return the created photo record
+    return Promise.resolve({
+        id: Math.floor(Math.random() * 1000), // Placeholder ID
+        prospect_id: input.prospect_id,
+        filename: input.filename,
+        original_name: input.original_name,
+        mime_type: input.mime_type,
+        file_size: input.file_size,
+        file_path: input.file_path,
+        uploaded_at: new Date()
+    } as Photo);
+}

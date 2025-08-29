@@ -2,109 +2,248 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 84% 4.9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.75rem;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+/* Custom scrollbar for better UX */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Smooth transitions */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Custom utilities */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Focus improvements for accessibility */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid theme(colors.blue.600);
+  outline-offset: 2px;
+}
+
+/* Card hover effects */
+.hover\:shadow-lift:hover {
+  box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+/* Badge animation */
+.badge-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .7;
   }
 }
 
-@layer base {
-  body {
-    font-feature-settings: "rlig" 1, "calt" 1;
+/* Loading spinner */
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 
-.crm-gradient {
-  background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 50%, #f5f0ff 100%);
-  min-height: 100vh;
+/* Status indicators */
+.status-indicator {
+  position: relative;
 }
 
-.crm-card {
-  background-color: white;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  border-radius: 0.75rem;
+.status-indicator::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid white;
 }
 
-.crm-header {
-  background: linear-gradient(90deg, #2563eb 0%, #4f46e5 100%);
+.status-new::before {
+  background-color: theme(colors.blue.500);
+}
+
+.status-contacted::before {
+  background-color: theme(colors.yellow.500);
+}
+
+.status-qualified::before {
+  background-color: theme(colors.green.500);
+}
+
+.status-proposal::before {
+  background-color: theme(colors.purple.500);
+}
+
+.status-negotiation::before {
+  background-color: theme(colors.orange.500);
+}
+
+.status-won::before {
+  background-color: theme(colors.emerald.500);
+}
+
+.status-lost::before {
+  background-color: theme(colors.red.500);
+}
+
+/* Priority indicators */
+.priority-urgent {
+  border-left: 4px solid theme(colors.red.500);
+}
+
+.priority-high {
+  border-left: 4px solid theme(colors.orange.500);
+}
+
+.priority-medium {
+  border-left: 4px solid theme(colors.blue.500);
+}
+
+.priority-low {
+  border-left: 4px solid theme(colors.gray.400);
+}
+
+/* File upload drag and drop */
+.drag-over {
+  border-color: theme(colors.blue.400) !important;
+  background-color: theme(colors.blue.50) !important;
+}
+
+/* Toast notification positions */
+.toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
+}
+
+/* Activity timeline */
+.activity-timeline {
+  position: relative;
+}
+
+.activity-timeline::before {
+  content: '';
+  position: absolute;
+  left: 1.25rem;
+  top: 2.5rem;
+  bottom: 0;
+  width: 2px;
+  background: theme(colors.gray.200);
+}
+
+.activity-timeline:last-child::before {
+  display: none;
+}
+
+/* Professional shadows */
+.shadow-soft {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.shadow-medium {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* Form enhancements */
+.form-section {
+  position: relative;
+  padding: 1.5rem;
+  border: 1px solid theme(colors.gray.200);
+  border-radius: 0.5rem;
+  background: white;
+}
+
+.form-section + .form-section {
+  margin-top: 1.5rem;
+}
+
+/* Stats cards */
+.stat-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
 }
 
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.5rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 500;
+.stat-card-blue {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-.status-terbuka {
-  background-color: #dbeafe;
-  color: #1e40af;
+.stat-card-green {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
 }
 
-.status-menang {
-  background-color: #dcfce7;
-  color: #166534;
+.stat-card-orange {
+  background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
 }
 
-.status-kalah {
-  background-color: #fee2e2;
-  color: #dc2626;
+.stat-card-purple {
+  background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%);
 }
 
-.potensi-tinggi {
-  background-color: #dcfce7;
-  color: #166534;
+/* Responsive utilities */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .mobile-stack > * + * {
+    margin-top: 0.75rem;
+  }
 }
 
-.potensi-sedang {
-  background-color: #fef3c7;
-  color: #d97706;
-}
-
-.potensi-rendah {
-  background-color: #fee2e2;
-  color: #dc2626;
-}
-
-.follow-up-perlu {
-  background-color: #fed7aa;
-  color: #ea580c;
-}
-
-.follow-up-selesai {
-  background-color: #dcfce7;
-  color: #166534;
-}
-
-.follow-up-tertunda {
-  background-color: #f3f4f6;
-  color: #374151;
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-break-inside-avoid {
+    break-inside: avoid;
+  }
 }

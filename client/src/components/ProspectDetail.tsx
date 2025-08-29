@@ -1,54 +1,119 @@
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { trpc } from '@/utils/trpc';
-import { useState, useRef } from 'react';
-import { ArrowLeft, Edit3, Trash2, Camera, Upload, Calendar, Phone, FileText, Users } from 'lucide-react';
-import type { SalesProspect, UpdateSalesProspectInput } from '../../../server/src/schema';
+import { useState, useEffect, useCallback } from 'react';
+import { ArrowLeft, Edit, Save, X, Trash2, User, Building2, Mail, Phone, DollarSign, FileText, Calendar, AlertCircle } from 'lucide-react';
+import { PhotoUpload } from '@/components/PhotoUpload';
+import { ActivityLog } from '@/components/ActivityLog';
+
+import type { Prospect, UpdateProspectInput, ProspectStatus, ProspectPriority, Photo, Activity } from '../../../server/src/schema';
 
 interface ProspectDetailProps {
-  prospect: SalesProspect;
+  prospect: Prospect;
   onBack: () => void;
-  onUpdate: (updatedProspect: SalesProspect) => void;
+  onUpdate: (updatedProspect: Prospect) => void;
   onDelete: () => void;
 }
 
 export function ProspectDetail({ prospect, onBack, onUpdate, onDelete }: ProspectDetailProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-  const [showPhotoDialog, setShowPhotoDialog] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const [formData, setFormData] = useState<UpdateSalesProspectInput>({
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [photosLoading, setPhotosLoading] = useState(true);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
+
+  const [formData, setFormData] = useState<UpdateProspectInput>({
     id: prospect.id,
-    follow_up: prospect.follow_up,
-    tanggal_fu_terakhir: prospect.tanggal_fu_terakhir,
-    date_last_respond: prospect.date_last_respond,
-    potensi: prospect.potensi,
-    online_meeting: prospect.online_meeting,
-    survey_lokasi: prospect.survey_lokasi,
-    status_closing: prospect.status_closing,
-    notes: prospect.notes,
-    blast_mingguan: prospect.blast_mingguan,
-    photo_url: prospect.photo_url
+    first_name: prospect.first_name,
+    last_name: prospect.last_name,
+    email: prospect.email,
+    phone: prospect.phone,
+    company: prospect.company,
+    position: prospect.position,
+    status: prospect.status,
+    priority: prospect.priority,
+    estimated_value: prospect.estimated_value,
+    notes: prospect.notes
   });
 
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Load photos for this prospect
+  const loadPhotos = useCallback(async () => {
+    try {
+      const result = await trpc.getProspectPhotos.query({ prospectId: prospect.id });
+      setPhotos(result);
+    } catch (error) {
+      console.error('Failed to load photos:', error);
+    } finally {
+      setPhotosLoading(false);
+    }
+  }, [prospect.id]);
+
+  // Load activities for this prospect
+  const loadActivities = useCallback(async () => {
+    try {
+      const result = await trpc.getProspectActivities.query({ prospectId: prospect.id });
+      setActivities(result);
+    } catch (error) {
+      console.error('Failed to load activities:', error);
+    } finally {
+      setActivitiesLoading(false);
+    }
+  }, [prospect.id]);
+
+  useEffect(() => {
+    loadPhotos();
+    loadActivities();
+  }, [loadPhotos, loadActivities]);
+
+  const handleUpdate = async () => {
+    setErrors({});
+    
+    // Basic validation
+    const newErrors: Record<string, string> = {};
+    
+    if (!formData.first_name?.trim()) {
+      newErrors.first_name = 'Nama depan wajib diisi';
+    }
+    
+    if (!formData.last_name?.trim()) {
+      newErrors.last_name = 'Nama belakang wajib diisi';
+    }
+    
+    if (!formData.email?.trim()) {
+      newErrors.email = 'Email wajib diisi';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Format email tidak valid';
+    }
+    
+    if (formData.estimated_value !== null && formData.estimated_value !== undefined && formData.estimated_value <= 0) {
+      newErrors.estimated_value = 'Nilai estimasi harus positif';
+    }
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const response = await trpc.updateSalesProspect.mutate(formData);
-      onUpdate(response);
-      setIsEditing(false);
+      const updatedProspect = await trpc.updateProspect.mutate(formData);
+      if (updatedProspect) {
+        onUpdate(updatedProspect);
+        setIsEditing(false);
+      } else {
+        console.error('Prospect not found');
+      }
     } catch (error) {
       console.error('Failed to update prospect:', error);
     } finally {
@@ -56,138 +121,158 @@ export function ProspectDetail({ prospect, onBack, onUpdate, onDelete }: Prospec
     }
   };
 
-  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB');
-      return;
-    }
-
-    setIsUploadingPhoto(true);
-    try {
-      // Convert file to base64
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const base64Data = e.target?.result as string;
-        
-        try {
-          const response = await trpc.uploadPhoto.mutate({
-            prospect_id: prospect.id,
-            photo_data: base64Data,
-            filename: file.name
-          });
-          onUpdate(response);
-          setShowPhotoDialog(false);
-        } catch (error) {
-          console.error('Failed to upload photo:', error);
-          alert('Failed to upload photo. Please try again.');
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error('Error processing file:', error);
-    } finally {
-      setIsUploadingPhoto(false);
-    }
-  };
-
-  const getStatusBadgeClass = (status: string) => {
-    const statusLower = status.toLowerCase();
-    if (statusLower.includes('terbuka')) return 'status-terbuka';
-    if (statusLower.includes('menang')) return 'status-menang';
-    if (statusLower.includes('kalah')) return 'status-kalah';
-    return 'status-terbuka';
-  };
-
-  const getPotensiBadgeClass = (potensi: string) => {
-    const potensiLower = potensi.toLowerCase();
-    if (potensiLower.includes('tinggi')) return 'potensi-tinggi';
-    if (potensiLower.includes('sedang')) return 'potensi-sedang';
-    if (potensiLower.includes('rendah')) return 'potensi-rendah';
-    return 'potensi-sedang';
-  };
-
-  const getFollowUpBadgeClass = (followUp: string) => {
-    const followUpLower = followUp.toLowerCase();
-    if (followUpLower.includes('perlu')) return 'follow-up-perlu';
-    if (followUpLower.includes('selesai')) return 'follow-up-selesai';
-    if (followUpLower.includes('tertunda')) return 'follow-up-tertunda';
-    return 'follow-up-perlu';
-  };
-
-  const formatDate = (date: Date | null) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('id-ID', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+  const handleCancel = () => {
+    setFormData({
+      id: prospect.id,
+      first_name: prospect.first_name,
+      last_name: prospect.last_name,
+      email: prospect.email,
+      phone: prospect.phone,
+      company: prospect.company,
+      position: prospect.position,
+      status: prospect.status,
+      priority: prospect.priority,
+      estimated_value: prospect.estimated_value,
+      notes: prospect.notes
     });
+    setErrors({});
+    setIsEditing(false);
   };
 
-  const formatDateInput = (date: Date | null) => {
-    if (!date) return '';
-    return new Date(date).toISOString().split('T')[0];
+  const handlePhotoUploaded = (newPhoto: Photo) => {
+    setPhotos((prev: Photo[]) => [newPhoto, ...prev]);
+  };
+
+  const handlePhotoDeleted = async (photoId: number) => {
+    try {
+      await trpc.deletePhoto.mutate({ photoId });
+      setPhotos((prev: Photo[]) => prev.filter((photo: Photo) => photo.id !== photoId));
+    } catch (error) {
+      console.error('Failed to delete photo:', error);
+    }
+  };
+
+  const getStatusBadgeVariant = (status: ProspectStatus) => {
+    switch (status) {
+      case 'new': return 'secondary';
+      case 'contacted': return 'outline';
+      case 'qualified': return 'default';
+      case 'proposal': return 'secondary';
+      case 'negotiation': return 'default';
+      case 'closed_won': return 'default';
+      case 'closed_lost': return 'destructive';
+      default: return 'secondary';
+    }
+  };
+
+  const getPriorityBadgeColor = (priority: ProspectPriority) => {
+    switch (priority) {
+      case 'urgent': return 'bg-red-100 text-red-800';
+      case 'high': return 'bg-orange-100 text-orange-800';
+      case 'medium': return 'bg-blue-100 text-blue-800';
+      case 'low': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusLabel = (status: ProspectStatus) => {
+    const labels = {
+      'new': 'Baru',
+      'contacted': 'Dihubungi',
+      'qualified': 'Terkualifikasi',
+      'proposal': 'Proposal',
+      'negotiation': 'Negosiasi',
+      'closed_won': 'Menang',
+      'closed_lost': 'Kalah'
+    };
+    return labels[status] || status;
+  };
+
+  const getPriorityLabel = (priority: ProspectPriority) => {
+    const labels = {
+      'urgent': 'Mendesak',
+      'high': 'Tinggi',
+      'medium': 'Sedang',
+      'low': 'Rendah'
+    };
+    return labels[priority] || priority;
   };
 
   return (
-    <div className="min-h-screen crm-gradient">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="crm-header shadow-lg">
-        <div className="container mx-auto px-6 py-6">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              onClick={onBack}
-              className="text-white hover:bg-white/20"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Kembali
-            </Button>
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold mb-1">Detail Prospek #{prospect.id}</h1>
-              <p className="text-blue-100">Informasi lengkap prospek penjualan</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button 
-                variant="ghost" 
-                onClick={() => setIsEditing(!isEditing)}
-                className="text-white hover:bg-white/20"
-              >
-                <Edit3 className="h-4 w-4 mr-2" />
-                {isEditing ? 'Batal Edit' : 'Edit'}
+      <div className="bg-white border-b shadow-sm">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="outline" onClick={onBack} size="sm">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Kembali
               </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" className="text-white hover:bg-red-500/20">
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Hapus
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900">
+                  {prospect.first_name} {prospect.last_name}
+                </h1>
+                <p className="text-gray-600">Detail Prospek #{prospect.id}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {!isEditing ? (
+                <>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsEditing(true)}
+                    size="sm"
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
                   </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Konfirmasi Hapus</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Apakah Anda yakin ingin menghapus prospek ini? Tindakan ini tidak dapat dibatalkan.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Batal</AlertDialogCancel>
-                    <AlertDialogAction onClick={onDelete} className="bg-red-600 hover:bg-red-700">
-                      Hapus
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm">
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Hapus
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus Prospek</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Apakah Anda yakin ingin menghapus prospek {prospect.first_name} {prospect.last_name}? 
+                          Tindakan ini tidak dapat dibatalkan.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction onClick={onDelete} className="bg-red-600 hover:bg-red-700">
+                          Ya, Hapus
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              ) : (
+                <>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleCancel}
+                    size="sm"
+                    disabled={isLoading}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Batal
+                  </Button>
+                  <Button 
+                    onClick={handleUpdate}
+                    size="sm"
+                    disabled={isLoading}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isLoading ? 'Menyimpan...' : 'Simpan'}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -195,327 +280,409 @@ export function ProspectDetail({ prospect, onBack, onUpdate, onDelete }: Prospec
 
       <div className="container mx-auto p-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Photo and Status Card */}
-          <Card className="crm-card lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Camera className="h-5 w-5" />
-                Foto & Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Photo Section */}
-              <div className="text-center">
-                <div className="relative inline-block">
-                  {prospect.photo_url ? (
-                    <div className="w-32 h-32 rounded-lg overflow-hidden bg-gray-100 mx-auto">
-                      <img 
-                        src={prospect.photo_url} 
-                        alt="Prospect" 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-32 h-32 rounded-lg bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center mx-auto">
-                      <Users className="h-12 w-12 text-blue-600" />
-                    </div>
-                  )}
-                </div>
-                
-                <Dialog open={showPhotoDialog} onOpenChange={setShowPhotoDialog}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" className="mt-4" size="sm">
-                      <Upload className="h-4 w-4 mr-2" />
-                      {prospect.photo_url ? 'Ganti Foto' : 'Upload Foto'}
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Upload Foto Prospek</DialogTitle>
-                      <DialogDescription>
-                        Pilih file gambar untuk prospek ini. Maksimal ukuran file 5MB.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <Input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handlePhotoUpload}
-                        disabled={isUploadingPhoto}
-                      />
-                      {isUploadingPhoto && (
-                        <p className="text-sm text-blue-600">Mengupload foto...</p>
-                      )}
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            <Tabs defaultValue="details" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="details">Detail Informasi</TabsTrigger>
+                <TabsTrigger value="photos">Foto ({photos.length})</TabsTrigger>
+                <TabsTrigger value="activities">Aktivitas ({activities.length})</TabsTrigger>
+              </TabsList>
 
-              <Separator />
-
-              {/* Status Badges */}
-              <div className="space-y-3">
-                <Badge className={`status-badge ${getStatusBadgeClass(prospect.status_closing)} w-full justify-center`}>
-                  Status: {prospect.status_closing}
-                </Badge>
-                <Badge className={`status-badge ${getPotensiBadgeClass(prospect.potensi)} w-full justify-center`}>
-                  Potensi {prospect.potensi}
-                </Badge>
-                <Badge className={`status-badge ${getFollowUpBadgeClass(prospect.follow_up)} w-full justify-center`}>
-                  Follow Up {prospect.follow_up}
-                </Badge>
-              </div>
-
-              <Separator />
-
-              {/* Boolean Fields */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Online Meeting</span>
-                  <Badge variant={prospect.online_meeting ? "default" : "secondary"}>
-                    {prospect.online_meeting ? '✅ Ya' : '❌ Tidak'}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Survey Lokasi</span>
-                  <Badge variant={prospect.survey_lokasi ? "default" : "secondary"}>
-                    {prospect.survey_lokasi ? '✅ Ya' : '❌ Tidak'}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Blast Mingguan</span>
-                  <Badge variant={prospect.blast_mingguan ? "default" : "secondary"}>
-                    {prospect.blast_mingguan ? '✅ Ya' : '❌ Tidak'}
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Main Information Card */}
-          <Card className="crm-card lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                {isEditing ? 'Edit Informasi' : 'Informasi Detail'}
-              </CardTitle>
-              <CardDescription>
-                {isEditing ? 'Ubah informasi prospek sesuai kebutuhan' : 'Detail lengkap tentang prospek ini'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isEditing ? (
-                <form onSubmit={handleUpdate} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Follow Up Status */}
-                    <div className="space-y-2">
-                      <Label>Status Follow Up *</Label>
-                      <Select 
-                        value={formData.follow_up || ''} 
-                        onValueChange={(value) => setFormData((prev: UpdateSalesProspectInput) => ({ ...prev, follow_up: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Perlu">Perlu</SelectItem>
-                          <SelectItem value="Selesai">Selesai</SelectItem>
-                          <SelectItem value="Tertunda">Tertunda</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Potensi */}
-                    <div className="space-y-2">
-                      <Label>Potensi *</Label>
-                      <Select 
-                        value={formData.potensi || ''} 
-                        onValueChange={(value) => setFormData((prev: UpdateSalesProspectInput) => ({ ...prev, potensi: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Tinggi">Tinggi</SelectItem>
-                          <SelectItem value="Sedang">Sedang</SelectItem>
-                          <SelectItem value="Rendah">Rendah</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Tanggal FU Terakhir */}
-                    <div className="space-y-2">
-                      <Label>Tanggal Follow Up Terakhir</Label>
-                      <Input
-                        type="date"
-                        value={formatDateInput(formData.tanggal_fu_terakhir || null)}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          setFormData((prev: UpdateSalesProspectInput) => ({
-                            ...prev,
-                            tanggal_fu_terakhir: e.target.value ? new Date(e.target.value) : null
-                          }))
-                        }
-                      />
-                    </div>
-
-                    {/* Date Last Respond */}
-                    <div className="space-y-2">
-                      <Label>Tanggal Respon Terakhir</Label>
-                      <Input
-                        type="date"
-                        value={formatDateInput(formData.date_last_respond || null)}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          setFormData((prev: UpdateSalesProspectInput) => ({
-                            ...prev,
-                            date_last_respond: e.target.value ? new Date(e.target.value) : null
-                          }))
-                        }
-                      />
-                    </div>
-
-                    {/* Status Closing */}
-                    <div className="space-y-2 md:col-span-2">
-                      <Label>Status Closing *</Label>
-                      <Select 
-                        value={formData.status_closing || ''} 
-                        onValueChange={(value) => setFormData((prev: UpdateSalesProspectInput) => ({ ...prev, status_closing: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Terbuka">Terbuka</SelectItem>
-                          <SelectItem value="Menang">Menang</SelectItem>
-                          <SelectItem value="Kalah">Kalah</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Boolean Fields */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="online_meeting_edit"
-                        checked={formData.online_meeting || false}
-                        onCheckedChange={(checked) =>
-                          setFormData((prev: UpdateSalesProspectInput) => ({ ...prev, online_meeting: !!checked }))
-                        }
-                      />
-                      <Label htmlFor="online_meeting_edit" className="text-sm font-medium">
-                        📹 Online Meeting
-                      </Label>
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="survey_lokasi_edit"
-                        checked={formData.survey_lokasi || false}
-                        onCheckedChange={(checked) =>
-                          setFormData((prev: UpdateSalesProspectInput) => ({ ...prev, survey_lokasi: !!checked }))
-                        }
-                      />
-                      <Label htmlFor="survey_lokasi_edit" className="text-sm font-medium">
-                        📍 Survey Lokasi
-                      </Label>
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="blast_mingguan_edit"
-                        checked={formData.blast_mingguan || false}
-                        onCheckedChange={(checked) =>
-                          setFormData((prev: UpdateSalesProspectInput) => ({ ...prev, blast_mingguan: !!checked }))
-                        }
-                      />
-                      <Label htmlFor="blast_mingguan_edit" className="text-sm font-medium">
-                        📧 Blast Mingguan
-                      </Label>
-                    </div>
-                  </div>
-
-                  {/* Notes */}
-                  <div className="space-y-2">
-                    <Label>Catatan</Label>
-                    <Textarea
-                      value={formData.notes || ''}
-                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                        setFormData((prev: UpdateSalesProspectInput) => ({
-                          ...prev,
-                          notes: e.target.value || null
-                        }))
-                      }
-                      className="min-h-[120px]"
-                      placeholder="Tambahkan catatan untuk prospek ini..."
-                    />
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-3 pt-4">
-                    <Button 
-                      type="submit" 
-                      disabled={isLoading}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      {isLoading ? 'Menyimpan...' : 'Simpan Perubahan'}
-                    </Button>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={() => setIsEditing(false)}
-                    >
-                      Batal
-                    </Button>
-                  </div>
-                </form>
-              ) : (
-                <div className="space-y-6">
-                  {/* Dates */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg">
-                      <Calendar className="h-5 w-5 text-blue-600" />
+              {/* Details Tab */}
+              <TabsContent value="details" className="space-y-6">
+                {/* Personal Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <User className="h-5 w-5" />
+                      Informasi Personal
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">Follow Up Terakhir</p>
-                        <p className="text-blue-600">{formatDate(prospect.tanggal_fu_terakhir)}</p>
+                        <Label htmlFor="first_name">Nama Depan *</Label>
+                        {isEditing ? (
+                          <>
+                            <Input
+                              id="first_name"
+                              value={formData.first_name || ''}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                setFormData((prev: UpdateProspectInput) => ({ ...prev, first_name: e.target.value }))
+                              }
+                              className={errors.first_name ? 'border-red-500' : ''}
+                            />
+                            {errors.first_name && (
+                              <div className="flex items-center gap-1 text-sm text-red-600 mt-1">
+                                <AlertCircle className="h-4 w-4" />
+                                {errors.first_name}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-gray-900 font-medium mt-1">{prospect.first_name}</p>
+                        )}
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg">
-                      <Phone className="h-5 w-5 text-green-600" />
+
                       <div>
-                        <p className="text-sm font-medium text-gray-900">Respon Terakhir</p>
-                        <p className="text-green-600">{formatDate(prospect.date_last_respond)}</p>
+                        <Label htmlFor="last_name">Nama Belakang *</Label>
+                        {isEditing ? (
+                          <>
+                            <Input
+                              id="last_name"
+                              value={formData.last_name || ''}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                setFormData((prev: UpdateProspectInput) => ({ ...prev, last_name: e.target.value }))
+                              }
+                              className={errors.last_name ? 'border-red-500' : ''}
+                            />
+                            {errors.last_name && (
+                              <div className="flex items-center gap-1 text-sm text-red-600 mt-1">
+                                <AlertCircle className="h-4 w-4" />
+                                {errors.last_name}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-gray-900 font-medium mt-1">{prospect.last_name}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label>Email *</Label>
+                        {isEditing ? (
+                          <>
+                            <div className="relative">
+                              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                              <Input
+                                type="email"
+                                value={formData.email || ''}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                  setFormData((prev: UpdateProspectInput) => ({ ...prev, email: e.target.value }))
+                                }
+                                className={`pl-10 ${errors.email ? 'border-red-500' : ''}`}
+                              />
+                            </div>
+                            {errors.email && (
+                              <div className="flex items-center gap-1 text-sm text-red-600 mt-1">
+                                <AlertCircle className="h-4 w-4" />
+                                {errors.email}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-gray-900 font-medium mt-1 flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-gray-400" />
+                            {prospect.email}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label>Nomor Telepon</Label>
+                        {isEditing ? (
+                          <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                            <Input
+                              value={formData.phone || ''}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                setFormData((prev: UpdateProspectInput) => ({ ...prev, phone: e.target.value || null }))
+                              }
+                              className="pl-10"
+                            />
+                          </div>
+                        ) : (
+                          <p className="text-gray-900 font-medium mt-1 flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-gray-400" />
+                            {prospect.phone || '-'}
+                          </p>
+                        )}
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* Company Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5" />
+                      Informasi Perusahaan
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Perusahaan</Label>
+                        {isEditing ? (
+                          <Input
+                            value={formData.company || ''}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              setFormData((prev: UpdateProspectInput) => ({ ...prev, company: e.target.value || null }))
+                            }
+                          />
+                        ) : (
+                          <p className="text-gray-900 font-medium mt-1">{prospect.company || '-'}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label>Posisi/Jabatan</Label>
+                        {isEditing ? (
+                          <Input
+                            value={formData.position || ''}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              setFormData((prev: UpdateProspectInput) => ({ ...prev, position: e.target.value || null }))
+                            }
+                          />
+                        ) : (
+                          <p className="text-gray-900 font-medium mt-1">{prospect.position || '-'}</p>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Sales Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <DollarSign className="h-5 w-5" />
+                      Informasi Penjualan
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label>Status</Label>
+                        {isEditing ? (
+                          <Select 
+                            value={formData.status || 'new'} 
+                            onValueChange={(value: ProspectStatus) => 
+                              setFormData((prev: UpdateProspectInput) => ({ ...prev, status: value }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="new">Baru</SelectItem>
+                              <SelectItem value="contacted">Dihubungi</SelectItem>
+                              <SelectItem value="qualified">Terkualifikasi</SelectItem>
+                              <SelectItem value="proposal">Proposal</SelectItem>
+                              <SelectItem value="negotiation">Negosiasi</SelectItem>
+                              <SelectItem value="closed_won">Menang</SelectItem>
+                              <SelectItem value="closed_lost">Kalah</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <div className="mt-1">
+                            <Badge variant={getStatusBadgeVariant(prospect.status)}>
+                              {getStatusLabel(prospect.status)}
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label>Prioritas</Label>
+                        {isEditing ? (
+                          <Select 
+                            value={formData.priority || 'medium'} 
+                            onValueChange={(value: ProspectPriority) => 
+                              setFormData((prev: UpdateProspectInput) => ({ ...prev, priority: value }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="low">Rendah</SelectItem>
+                              <SelectItem value="medium">Sedang</SelectItem>
+                              <SelectItem value="high">Tinggi</SelectItem>
+                              <SelectItem value="urgent">Mendesak</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <div className="mt-1">
+                            <Badge className={`text-xs ${getPriorityBadgeColor(prospect.priority)}`}>
+                              {getPriorityLabel(prospect.priority)}
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <Label>Nilai Estimasi ($)</Label>
+                        {isEditing ? (
+                          <>
+                            <Input
+                              type="number"
+                              value={formData.estimated_value || ''}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                setFormData((prev: UpdateProspectInput) => ({ 
+                                  ...prev, 
+                                  estimated_value: e.target.value ? parseFloat(e.target.value) : null 
+                                }))
+                              }
+                              min="0"
+                              step="100"
+                              className={errors.estimated_value ? 'border-red-500' : ''}
+                            />
+                            {errors.estimated_value && (
+                              <div className="flex items-center gap-1 text-sm text-red-600 mt-1">
+                                <AlertCircle className="h-4 w-4" />
+                                {errors.estimated_value}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-gray-900 font-medium mt-1">
+                            {prospect.estimated_value ? `$${prospect.estimated_value.toLocaleString()}` : '-'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Notes */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Catatan
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {isEditing ? (
+                      <Textarea
+                        value={formData.notes || ''}
+                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                          setFormData((prev: UpdateProspectInput) => ({ ...prev, notes: e.target.value || null }))
+                        }
+                        rows={4}
+                        className="resize-none"
+                      />
+                    ) : (
+                      <p className="text-gray-900 whitespace-pre-wrap">
+                        {prospect.notes || 'Tidak ada catatan'}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Photos Tab */}
+              <TabsContent value="photos">
+                <PhotoUpload 
+                  prospectId={prospect.id}
+                  photos={photos}
+                  onPhotoUploaded={handlePhotoUploaded}
+                  onPhotoDeleted={handlePhotoDeleted}
+                  isLoading={photosLoading}
+                />
+              </TabsContent>
+
+              {/* Activities Tab */}
+              <TabsContent value="activities">
+                <ActivityLog 
+                  prospectId={prospect.id}
+                  activities={activities}
+                  isLoading={activitiesLoading}
+                  onActivityAdded={(activity: Activity) => setActivities((prev: Activity[]) => [activity, ...prev])}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Quick Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Info Singkat</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-center">
+                  <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-2xl mb-3">
+                    {prospect.first_name.charAt(0)}{prospect.last_name.charAt(0)}
                   </div>
+                  <h3 className="font-semibold text-gray-900">
+                    {prospect.first_name} {prospect.last_name}
+                  </h3>
+                  <p className="text-sm text-gray-600">{prospect.company || 'No Company'}</p>
+                </div>
 
-                  <Separator />
+                <Separator />
 
-                  {/* Notes */}
-                  {prospect.notes && (
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-gray-900">Catatan</h4>
-                      <div className="p-4 bg-gray-50 rounded-lg">
-                        <p className="text-gray-700 whitespace-pre-wrap">{prospect.notes}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  <Separator />
-
-                  {/* Timestamps */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                    <div>
-                      <span className="font-medium">Dibuat:</span> {formatDate(prospect.created_at)}
-                    </div>
-                    <div>
-                      <span className="font-medium">Diperbarui:</span> {formatDate(prospect.updated_at)}
-                    </div>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Status:</span>
+                    <Badge variant={getStatusBadgeVariant(prospect.status)} className="text-xs">
+                      {getStatusLabel(prospect.status)}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Prioritas:</span>
+                    <Badge className={`text-xs ${getPriorityBadgeColor(prospect.priority)}`}>
+                      {getPriorityLabel(prospect.priority)}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Nilai:</span>
+                    <span className="font-medium">
+                      {prospect.estimated_value ? `$${prospect.estimated_value.toLocaleString()}` : '-'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Dibuat:</span>
+                    <span className="font-medium">
+                      {prospect.created_at.toLocaleDateString('id-ID')}
+                    </span>
                   </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Aksi Cepat</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {prospect.email && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => window.open(`mailto:${prospect.email}`)}
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    Kirim Email
+                  </Button>
+                )}
+                {prospect.phone && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => window.open(`tel:${prospect.phone}`)}
+                  >
+                    <Phone className="h-4 w-4 mr-2" />
+                    Telepon
+                  </Button>
+                )}
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => {/* Add calendar integration */}}
+                >
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Jadwalkan Meeting
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

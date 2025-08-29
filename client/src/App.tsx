@@ -1,97 +1,130 @@
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { trpc } from '@/utils/trpc';
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Users, TrendingUp, Calendar, Phone, FileText } from 'lucide-react';
+import { Plus, Users, TrendingUp, Search, Filter, Building2, Phone, Mail, Calendar, DollarSign } from 'lucide-react';
 import { ProspectForm } from '@/components/ProspectForm';
 import { ProspectDetail } from '@/components/ProspectDetail';
-import './App.css';
 
 // Using type-only import for better TypeScript compliance
-import type { SalesProspect, CreateSalesProspectInput } from '../../server/src/schema';
+import type { Prospect, CreateProspectInput, ProspectFilter, ProspectStatus, ProspectPriority } from '../../server/src/schema';
 
 function App() {
-  // Explicit typing with SalesProspect interface
-  const [prospects, setProspects] = useState<SalesProspect[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedProspect, setSelectedProspect] = useState<SalesProspect | null>(null);
+  // State management with proper typing
+  const [prospects, setProspects] = useState<Prospect[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ProspectStatus | 'all'>('all');
+  const [priorityFilter, setPriorityFilter] = useState<ProspectPriority | 'all'>('all');
 
-  // useCallback to memoize function used in useEffect
+  // Load prospects with filters
   const loadProspects = useCallback(async () => {
     try {
-      const result = await trpc.getSalesProspects.query();
+      const filters: ProspectFilter = {};
+      if (searchTerm) filters.search = searchTerm;
+      if (statusFilter !== 'all') filters.status = statusFilter as ProspectStatus;
+      if (priorityFilter !== 'all') filters.priority = priorityFilter as ProspectPriority;
+
+      const result = await trpc.getProspects.query(filters);
       setProspects(result);
     } catch (error) {
       console.error('Failed to load prospects:', error);
+    } finally {
+      setIsLoading(false);
     }
-  }, []); // Empty deps since trpc is stable
+  }, [searchTerm, statusFilter, priorityFilter]);
 
-  // useEffect with proper dependencies
+  // Load prospects on mount and filter changes
   useEffect(() => {
     loadProspects();
   }, [loadProspects]);
 
-  const handleCreateProspect = async (formData: CreateSalesProspectInput) => {
-    setIsLoading(true);
+  const handleCreateProspect = async (formData: CreateProspectInput) => {
     try {
-      const response = await trpc.createSalesProspect.mutate(formData);
-      // Update prospects list with explicit typing in setState callback
-      setProspects((prev: SalesProspect[]) => [response, ...prev]);
+      const response = await trpc.createProspect.mutate(formData);
+      setProspects((prev: Prospect[]) => [response, ...prev]);
       setShowForm(false);
     } catch (error) {
       console.error('Failed to create prospect:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const handleUpdateProspect = async (updatedProspect: SalesProspect) => {
-    setProspects((prev: SalesProspect[]) => 
-      prev.map((p: SalesProspect) => p.id === updatedProspect.id ? updatedProspect : p)
+  const handleUpdateProspect = async (updatedProspect: Prospect) => {
+    setProspects((prev: Prospect[]) => 
+      prev.map((p: Prospect) => p.id === updatedProspect.id ? updatedProspect : p)
     );
     setSelectedProspect(updatedProspect);
   };
 
   const handleDeleteProspect = async (id: number) => {
     try {
-      await trpc.deleteSalesProspect.mutate({ id });
-      setProspects((prev: SalesProspect[]) => prev.filter((p: SalesProspect) => p.id !== id));
+      await trpc.deleteProspect.mutate({ id });
+      setProspects((prev: Prospect[]) => prev.filter((p: Prospect) => p.id !== id));
       setSelectedProspect(null);
     } catch (error) {
       console.error('Failed to delete prospect:', error);
     }
   };
 
-  const getStatusBadgeClass = (status: string) => {
-    const statusLower = status.toLowerCase();
-    if (statusLower.includes('terbuka')) return 'status-terbuka';
-    if (statusLower.includes('menang')) return 'status-menang';
-    if (statusLower.includes('kalah')) return 'status-kalah';
-    return 'status-terbuka';
+  // Status badge styling
+  const getStatusBadgeVariant = (status: ProspectStatus) => {
+    switch (status) {
+      case 'new': return 'secondary';
+      case 'contacted': return 'outline';
+      case 'qualified': return 'default';
+      case 'proposal': return 'secondary';
+      case 'negotiation': return 'default';
+      case 'closed_won': return 'default';
+      case 'closed_lost': return 'destructive';
+      default: return 'secondary';
+    }
   };
 
-  const getPotensiBadgeClass = (potensi: string) => {
-    const potensiLower = potensi.toLowerCase();
-    if (potensiLower.includes('tinggi')) return 'potensi-tinggi';
-    if (potensiLower.includes('sedang')) return 'potensi-sedang';
-    if (potensiLower.includes('rendah')) return 'potensi-rendah';
-    return 'potensi-sedang';
+  const getPriorityBadgeColor = (priority: ProspectPriority) => {
+    switch (priority) {
+      case 'urgent': return 'bg-red-100 text-red-800';
+      case 'high': return 'bg-orange-100 text-orange-800';
+      case 'medium': return 'bg-blue-100 text-blue-800';
+      case 'low': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
-  const getFollowUpBadgeClass = (followUp: string) => {
-    const followUpLower = followUp.toLowerCase();
-    if (followUpLower.includes('perlu')) return 'follow-up-perlu';
-    if (followUpLower.includes('selesai')) return 'follow-up-selesai';
-    if (followUpLower.includes('tertunda')) return 'follow-up-tertunda';
-    return 'follow-up-perlu';
+  const getStatusLabel = (status: ProspectStatus) => {
+    const labels = {
+      'new': 'Baru',
+      'contacted': 'Dihubungi',
+      'qualified': 'Terkualifikasi',
+      'proposal': 'Proposal',
+      'negotiation': 'Negosiasi',
+      'closed_won': 'Menang',
+      'closed_lost': 'Kalah'
+    };
+    return labels[status] || status;
   };
 
-  const formatDate = (date: Date | null) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString('id-ID');
+  const getPriorityLabel = (priority: ProspectPriority) => {
+    const labels = {
+      'urgent': 'Mendesak',
+      'high': 'Tinggi',
+      'medium': 'Sedang',
+      'low': 'Rendah'
+    };
+    return labels[priority] || priority;
+  };
+
+  // Calculate stats
+  const stats = {
+    total: prospects.length,
+    qualified: prospects.filter(p => p.status === 'qualified' || p.status === 'proposal' || p.status === 'negotiation').length,
+    highPriority: prospects.filter(p => p.priority === 'high' || p.priority === 'urgent').length,
+    closedWon: prospects.filter(p => p.status === 'closed_won').length,
+    totalValue: prospects.filter(p => p.estimated_value).reduce((sum, p) => sum + (p.estimated_value || 0), 0)
   };
 
   if (selectedProspect) {
@@ -107,22 +140,32 @@ function App() {
 
   if (showForm) {
     return (
-      <div className="min-h-screen crm-gradient">
-        <div className="container mx-auto p-6">
-          <div className="max-w-2xl mx-auto">
-            <div className="flex items-center gap-3 mb-6">
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-white border-b">
+          <div className="container mx-auto px-6 py-4">
+            <div className="flex items-center gap-3">
               <Button 
                 variant="outline" 
                 onClick={() => setShowForm(false)}
-                className="border-gray-300"
+                size="sm"
               >
                 ← Kembali
               </Button>
-              <h1 className="text-2xl font-bold text-gray-900">Tambah Prospek Baru</h1>
+              <h1 className="text-xl font-semibold text-gray-900">Tambah Prospek Baru</h1>
             </div>
-            
-            <Card className="crm-card">
-              <CardContent className="p-6">
+          </div>
+        </div>
+        
+        <div className="container mx-auto p-6">
+          <div className="max-w-2xl mx-auto">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Informasi Prospek
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
                 <ProspectForm 
                   onSubmit={handleCreateProspect}
                   isLoading={isLoading}
@@ -136,198 +179,242 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen crm-gradient">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="crm-header shadow-lg">
-        <div className="container mx-auto px-6 py-8">
+      <div className="bg-white border-b shadow-sm">
+        <div className="container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2">🎯 CRM Sales Pipeline</h1>
-              <p className="text-blue-100">Kelola dan pantau prospek penjualan Anda</p>
+              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <Building2 className="h-6 w-6 text-blue-600" />
+                CRM Dashboard
+              </h1>
+              <p className="text-gray-600 mt-1">Kelola prospek dan pipeline penjualan</p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <div className="text-2xl font-bold">{prospects.length}</div>
-                <div className="text-sm text-blue-100">Total Prospek</div>
-              </div>
-            </div>
+            <Button 
+              onClick={() => setShowForm(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Tambah Prospek
+            </Button>
           </div>
         </div>
       </div>
 
       <div className="container mx-auto p-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="crm-card">
+        {/* Stats Dashboard */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Prospek</p>
-                  <p className="text-3xl font-bold text-blue-600">{prospects.length}</p>
+                  <p className="text-2xl font-bold text-blue-600">{stats.total}</p>
                 </div>
-                <Users className="h-8 w-8 text-blue-600" />
+                <Users className="h-8 w-8 text-blue-600 opacity-80" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="crm-card">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Potensi Tinggi</p>
-                  <p className="text-3xl font-bold text-emerald-600">
-                    {prospects.filter((p: SalesProspect) => p.potensi.toLowerCase().includes('tinggi')).length}
-                  </p>
+                  <p className="text-sm font-medium text-gray-600">Qualified</p>
+                  <p className="text-2xl font-bold text-green-600">{stats.qualified}</p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-emerald-600" />
+                <TrendingUp className="h-8 w-8 text-green-600 opacity-80" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="crm-card">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Butuh Follow Up</p>
-                  <p className="text-3xl font-bold text-orange-600">
-                    {prospects.filter((p: SalesProspect) => p.follow_up.toLowerCase().includes('perlu')).length}
-                  </p>
+                  <p className="text-sm font-medium text-gray-600">Prioritas Tinggi</p>
+                  <p className="text-2xl font-bold text-orange-600">{stats.highPriority}</p>
                 </div>
-                <Phone className="h-8 w-8 text-orange-600" />
+                <Filter className="h-8 w-8 text-orange-600 opacity-80" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="crm-card">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Closing Menang</p>
-                  <p className="text-3xl font-bold text-green-600">
-                    {prospects.filter((p: SalesProspect) => p.status_closing.toLowerCase().includes('menang')).length}
+                  <p className="text-sm font-medium text-gray-600">Deal Menang</p>
+                  <p className="text-2xl font-bold text-emerald-600">{stats.closedWon}</p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-emerald-600 opacity-80" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Value</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    ${stats.totalValue.toLocaleString()}
                   </p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-green-600" />
+                <DollarSign className="h-8 w-8 text-purple-600 opacity-80" />
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Action Bar */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">Daftar Prospek</h2>
-            <p className="text-gray-600">Kelola semua prospek penjualan Anda</p>
-          </div>
-          <Button 
-            onClick={() => setShowForm(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Tambah Prospek
-          </Button>
-        </div>
+        {/* Filters */}
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Cari nama, email, atau perusahaan..."
+                    value={searchTerm}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <Select value={statusFilter} onValueChange={(value: string) => setStatusFilter(value as ProspectStatus | 'all')}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Filter Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Status</SelectItem>
+                  <SelectItem value="new">Baru</SelectItem>
+                  <SelectItem value="contacted">Dihubungi</SelectItem>
+                  <SelectItem value="qualified">Terkualifikasi</SelectItem>
+                  <SelectItem value="proposal">Proposal</SelectItem>
+                  <SelectItem value="negotiation">Negosiasi</SelectItem>
+                  <SelectItem value="closed_won">Menang</SelectItem>
+                  <SelectItem value="closed_lost">Kalah</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={priorityFilter} onValueChange={(value: string) => setPriorityFilter(value as ProspectPriority | 'all')}>
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Filter Prioritas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Prioritas</SelectItem>
+                  <SelectItem value="urgent">Mendesak</SelectItem>
+                  <SelectItem value="high">Tinggi</SelectItem>
+                  <SelectItem value="medium">Sedang</SelectItem>
+                  <SelectItem value="low">Rendah</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Prospects Grid */}
-        {prospects.length === 0 ? (
-          <Card className="crm-card">
+        {/* Prospects List */}
+        {isLoading ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Memuat prospek...</p>
+            </CardContent>
+          </Card>
+        ) : prospects.length === 0 ? (
+          <Card>
             <CardContent className="p-12 text-center">
               <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Belum ada prospek</h3>
-              <p className="text-gray-600 mb-6">Mulai dengan menambahkan prospek pertama Anda</p>
-              <Button 
-                onClick={() => setShowForm(true)}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Tambah Prospek Pertama
-              </Button>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all' 
+                  ? 'Tidak ada prospek yang sesuai filter' 
+                  : 'Belum ada prospek'
+                }
+              </h3>
+              <p className="text-gray-600 mb-6">
+                {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all'
+                  ? 'Coba ubah filter atau kata kunci pencarian'
+                  : 'Mulai dengan menambahkan prospek pertama Anda'
+                }
+              </p>
+              {!searchTerm && statusFilter === 'all' && priorityFilter === 'all' && (
+                <Button 
+                  onClick={() => setShowForm(true)}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Tambah Prospek Pertama
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-6">
-            {prospects.map((prospect: SalesProspect) => (
+          <div className="grid gap-4">
+            {prospects.map((prospect: Prospect) => (
               <Card 
                 key={prospect.id} 
-                className="crm-card hover:shadow-xl transition-all duration-300 cursor-pointer"
+                className="hover:shadow-md transition-shadow cursor-pointer"
                 onClick={() => setSelectedProspect(prospect)}
               >
                 <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4">
-                      {prospect.photo_url && (
-                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                          <img 
-                            src={prospect.photo_url} 
-                            alt="Prospect" 
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
-                      {!prospect.photo_url && (
-                        <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center flex-shrink-0">
-                          <Users className="h-8 w-8 text-blue-600" />
-                        </div>
-                      )}
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-lg">
+                        {prospect.first_name.charAt(0)}{prospect.last_name.charAt(0)}
+                      </div>
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">Prospek #{prospect.id}</h3>
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          <Badge className={`status-badge ${getStatusBadgeClass(prospect.status_closing)}`}>
-                            {prospect.status_closing}
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {prospect.first_name} {prospect.last_name}
+                          </h3>
+                          <Badge variant={getStatusBadgeVariant(prospect.status)} className="text-xs">
+                            {getStatusLabel(prospect.status)}
                           </Badge>
-                          <Badge className={`status-badge ${getPotensiBadgeClass(prospect.potensi)}`}>
-                            Potensi {prospect.potensi}
-                          </Badge>
-                          <Badge className={`status-badge ${getFollowUpBadgeClass(prospect.follow_up)}`}>
-                            FU {prospect.follow_up}
+                          <Badge className={`text-xs ${getPriorityBadgeColor(prospect.priority)}`}>
+                            {getPriorityLabel(prospect.priority)}
                           </Badge>
                         </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-gray-600">
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4" />
+                            <span className="truncate">{prospect.email}</span>
+                          </div>
+                          {prospect.phone && (
+                            <div className="flex items-center gap-2">
+                              <Phone className="h-4 w-4" />
+                              <span>{prospect.phone}</span>
+                            </div>
+                          )}
+                          {prospect.company && (
+                            <div className="flex items-center gap-2">
+                              <Building2 className="h-4 w-4" />
+                              <span className="truncate">{prospect.company}</span>
+                            </div>
+                          )}
+                          {prospect.estimated_value && (
+                            <div className="flex items-center gap-2">
+                              <DollarSign className="h-4 w-4" />
+                              <span>${prospect.estimated_value.toLocaleString()}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {prospect.notes && (
+                          <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                            <p className="text-sm text-gray-700 line-clamp-2">{prospect.notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right text-sm text-gray-500">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        <span>{prospect.created_at.toLocaleDateString('id-ID')}</span>
                       </div>
                     </div>
                   </div>
-
-                  <Separator className="my-4" />
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Calendar className="h-4 w-4" />
-                      <span>FU Terakhir: {formatDate(prospect.tanggal_fu_terakhir)}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Phone className="h-4 w-4" />
-                      <span>Respon Terakhir: {formatDate(prospect.date_last_respond)}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <FileText className="h-4 w-4" />
-                      <span>Dibuat: {formatDate(prospect.created_at)}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4 mt-4">
-                    <div className="flex items-center gap-2">
-                      {prospect.online_meeting && (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800">
-                          📹 Online Meeting
-                        </Badge>
-                      )}
-                      {prospect.survey_lokasi && (
-                        <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                          📍 Survey Lokasi
-                        </Badge>
-                      )}
-                      {prospect.blast_mingguan && (
-                        <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-                          📧 Blast Mingguan
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  {prospect.notes && (
-                    <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-700 line-clamp-2">{prospect.notes}</p>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             ))}

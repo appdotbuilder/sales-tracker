@@ -1,76 +1,139 @@
 import { z } from 'zod';
 
-// Sales prospect schema with proper field types
-export const salesProspectSchema = z.object({
+// Prospect status enum
+export const prospectStatusSchema = z.enum([
+  'new',
+  'contacted', 
+  'qualified',
+  'proposal',
+  'negotiation',
+  'closed_won',
+  'closed_lost'
+]);
+
+export type ProspectStatus = z.infer<typeof prospectStatusSchema>;
+
+// Prospect priority enum
+export const prospectPrioritySchema = z.enum(['low', 'medium', 'high', 'urgent']);
+
+export type ProspectPriority = z.infer<typeof prospectPrioritySchema>;
+
+// Prospect schema
+export const prospectSchema = z.object({
   id: z.number(),
-  follow_up: z.string(),
-  tanggal_fu_terakhir: z.coerce.date().nullable(),
-  date_last_respond: z.coerce.date().nullable(), 
-  potensi: z.string(),
-  online_meeting: z.boolean(),
-  survey_lokasi: z.boolean(),
-  status_closing: z.string(),
+  first_name: z.string(),
+  last_name: z.string(),
+  email: z.string().email(),
+  phone: z.string().nullable(),
+  company: z.string().nullable(),
+  position: z.string().nullable(),
+  status: prospectStatusSchema,
+  priority: prospectPrioritySchema,
+  estimated_value: z.number().nullable(),
   notes: z.string().nullable(),
-  blast_mingguan: z.boolean(),
-  photo_url: z.string().nullable(),
   created_at: z.coerce.date(),
   updated_at: z.coerce.date()
 });
 
-export type SalesProspect = z.infer<typeof salesProspectSchema>;
+export type Prospect = z.infer<typeof prospectSchema>;
 
-// Input schema for creating sales prospects
-export const createSalesProspectInputSchema = z.object({
-  follow_up: z.string().min(1, "Follow up status is required"),
-  tanggal_fu_terakhir: z.coerce.date().nullable(),
-  date_last_respond: z.coerce.date().nullable(),
-  potensi: z.string().min(1, "Potensi is required"),
-  online_meeting: z.boolean(),
-  survey_lokasi: z.boolean(),
-  status_closing: z.string().min(1, "Status closing is required"),
-  notes: z.string().nullable(),
-  blast_mingguan: z.boolean(),
-  photo_url: z.string().nullable().optional()
-});
-
-export type CreateSalesProspectInput = z.infer<typeof createSalesProspectInputSchema>;
-
-// Input schema for updating sales prospects
-export const updateSalesProspectInputSchema = z.object({
+// Photo schema
+export const photoSchema = z.object({
   id: z.number(),
-  follow_up: z.string().min(1).optional(),
-  tanggal_fu_terakhir: z.coerce.date().nullable().optional(),
-  date_last_respond: z.coerce.date().nullable().optional(),
-  potensi: z.string().min(1).optional(),
-  online_meeting: z.boolean().optional(),
-  survey_lokasi: z.boolean().optional(),
-  status_closing: z.string().min(1).optional(),
-  notes: z.string().nullable().optional(),
-  blast_mingguan: z.boolean().optional(),
-  photo_url: z.string().nullable().optional()
+  prospect_id: z.number(),
+  filename: z.string(),
+  original_name: z.string(),
+  mime_type: z.string(),
+  file_size: z.number(),
+  file_path: z.string(),
+  uploaded_at: z.coerce.date()
 });
 
-export type UpdateSalesProspectInput = z.infer<typeof updateSalesProspectInputSchema>;
+export type Photo = z.infer<typeof photoSchema>;
 
-// Input schema for deleting sales prospects
-export const deleteSalesProspectInputSchema = z.object({
-  id: z.number()
+// Activity schema for tracking interactions
+export const activitySchema = z.object({
+  id: z.number(),
+  prospect_id: z.number(),
+  activity_type: z.enum(['call', 'email', 'meeting', 'note', 'status_change']),
+  title: z.string(),
+  description: z.string().nullable(),
+  activity_date: z.coerce.date(),
+  created_at: z.coerce.date()
 });
 
-export type DeleteSalesProspectInput = z.infer<typeof deleteSalesProspectInputSchema>;
+export type Activity = z.infer<typeof activitySchema>;
 
-// Input schema for getting a single sales prospect
-export const getSalesProspectInputSchema = z.object({
-  id: z.number()
+// Input schemas for creating prospects
+export const createProspectInputSchema = z.object({
+  first_name: z.string().min(1, 'First name is required'),
+  last_name: z.string().min(1, 'Last name is required'),
+  email: z.string().email('Valid email is required'),
+  phone: z.string().nullable(),
+  company: z.string().nullable(),
+  position: z.string().nullable(),
+  status: prospectStatusSchema.default('new'),
+  priority: prospectPrioritySchema.default('medium'),
+  estimated_value: z.number().positive().nullable(),
+  notes: z.string().nullable()
 });
 
-export type GetSalesProspectInput = z.infer<typeof getSalesProspectInputSchema>;
+export type CreateProspectInput = z.infer<typeof createProspectInputSchema>;
 
-// Input schema for uploading photo
+// Input schema for updating prospects
+export const updateProspectInputSchema = z.object({
+  id: z.number(),
+  first_name: z.string().min(1).optional(),
+  last_name: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().nullable().optional(),
+  company: z.string().nullable().optional(),
+  position: z.string().nullable().optional(),
+  status: prospectStatusSchema.optional(),
+  priority: prospectPrioritySchema.optional(),
+  estimated_value: z.number().positive().nullable().optional(),
+  notes: z.string().nullable().optional()
+});
+
+export type UpdateProspectInput = z.infer<typeof updateProspectInputSchema>;
+
+// Input schema for uploading photos
 export const uploadPhotoInputSchema = z.object({
   prospect_id: z.number(),
-  photo_data: z.string(), // Base64 encoded image data
-  filename: z.string().optional()
+  filename: z.string().min(1, 'Filename is required'),
+  original_name: z.string().min(1, 'Original name is required'),
+  mime_type: z.string().min(1, 'MIME type is required'),
+  file_size: z.number().positive('File size must be positive'),
+  file_path: z.string().min(1, 'File path is required')
 });
 
 export type UploadPhotoInput = z.infer<typeof uploadPhotoInputSchema>;
+
+// Input schema for creating activities
+export const createActivityInputSchema = z.object({
+  prospect_id: z.number(),
+  activity_type: z.enum(['call', 'email', 'meeting', 'note', 'status_change']),
+  title: z.string().min(1, 'Title is required'),
+  description: z.string().nullable(),
+  activity_date: z.coerce.date().optional()
+});
+
+export type CreateActivityInput = z.infer<typeof createActivityInputSchema>;
+
+// Detailed prospect schema with related data
+export const prospectWithDetailsSchema = prospectSchema.extend({
+  photos: z.array(photoSchema),
+  activities: z.array(activitySchema)
+});
+
+export type ProspectWithDetails = z.infer<typeof prospectWithDetailsSchema>;
+
+// Query parameters for filtering prospects
+export const prospectFilterSchema = z.object({
+  status: prospectStatusSchema.optional(),
+  priority: prospectPrioritySchema.optional(),
+  company: z.string().optional(),
+  search: z.string().optional() // Search across name, email, company
+});
+
+export type ProspectFilter = z.infer<typeof prospectFilterSchema>;
