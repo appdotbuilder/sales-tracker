@@ -1,8 +1,24 @@
+import { db } from '../db';
+import { salesProspectsTable } from '../db/schema';
 import { type GetSalesProspectInput, type SalesProspect } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function getSalesProspect(input: GetSalesProspectInput): Promise<SalesProspect | null> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching a single sales prospect by ID from the database.
-    // It should query the sales_prospects table by ID and return the record or null if not found.
-    return Promise.resolve(null);
-}
+export const getSalesProspect = async (input: GetSalesProspectInput): Promise<SalesProspect | null> => {
+  try {
+    // Query the sales prospect by ID
+    const results = await db.select()
+      .from(salesProspectsTable)
+      .where(eq(salesProspectsTable.id, input.id))
+      .execute();
+
+    // Return the first result or null if not found
+    if (results.length === 0) {
+      return null;
+    }
+
+    return results[0];
+  } catch (error) {
+    console.error('Failed to get sales prospect:', error);
+    throw error;
+  }
+};

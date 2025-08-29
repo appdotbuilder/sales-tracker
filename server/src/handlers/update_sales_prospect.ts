@@ -1,22 +1,58 @@
+import { db } from '../db';
+import { salesProspectsTable } from '../db/schema';
 import { type UpdateSalesProspectInput, type SalesProspect } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function updateSalesProspect(input: UpdateSalesProspectInput): Promise<SalesProspect> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating an existing sales prospect in the database.
-    // It should update the sales_prospects table with the provided fields and return the updated record.
-    // Should also update the updated_at timestamp automatically.
-    return Promise.resolve({
-        id: input.id,
-        follow_up: input.follow_up || "Default",
-        tanggal_fu_terakhir: input.tanggal_fu_terakhir || null,
-        date_last_respond: input.date_last_respond || null,
-        potensi: input.potensi || "Default",
-        online_meeting: input.online_meeting || false,
-        survey_lokasi: input.survey_lokasi || false,
-        status_closing: input.status_closing || "Default",
-        notes: input.notes || null,
-        blast_mingguan: input.blast_mingguan || false,
-        created_at: new Date(), // Placeholder date
-        updated_at: new Date()  // Placeholder date
-    } as SalesProspect);
-}
+export const updateSalesProspect = async (input: UpdateSalesProspectInput): Promise<SalesProspect> => {
+  try {
+    // Build update object with only provided fields
+    const updateData: Record<string, any> = {
+      updated_at: new Date() // Always update the timestamp
+    };
+
+    // Only include fields that are provided in the input
+    if (input.follow_up !== undefined) {
+      updateData['follow_up'] = input.follow_up;
+    }
+    if (input.tanggal_fu_terakhir !== undefined) {
+      updateData['tanggal_fu_terakhir'] = input.tanggal_fu_terakhir;
+    }
+    if (input.date_last_respond !== undefined) {
+      updateData['date_last_respond'] = input.date_last_respond;
+    }
+    if (input.potensi !== undefined) {
+      updateData['potensi'] = input.potensi;
+    }
+    if (input.online_meeting !== undefined) {
+      updateData['online_meeting'] = input.online_meeting;
+    }
+    if (input.survey_lokasi !== undefined) {
+      updateData['survey_lokasi'] = input.survey_lokasi;
+    }
+    if (input.status_closing !== undefined) {
+      updateData['status_closing'] = input.status_closing;
+    }
+    if (input.notes !== undefined) {
+      updateData['notes'] = input.notes;
+    }
+    if (input.blast_mingguan !== undefined) {
+      updateData['blast_mingguan'] = input.blast_mingguan;
+    }
+
+    // Update the sales prospect record
+    const result = await db.update(salesProspectsTable)
+      .set(updateData)
+      .where(eq(salesProspectsTable.id, input.id))
+      .returning()
+      .execute();
+
+    if (result.length === 0) {
+      throw new Error(`Sales prospect with id ${input.id} not found`);
+    }
+
+    return result[0];
+  } catch (error) {
+    console.error('Sales prospect update failed:', error);
+    throw error;
+  }
+};
